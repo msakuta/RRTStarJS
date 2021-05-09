@@ -285,20 +285,26 @@ function render(){
             ctx.beginPath();
             ctx.moveTo(prevState[0], prevState[1]);
             ctx.lineTo(nextState[0], nextState[1]);
-            ctx.strokeStyle = `rgb(${prevState.cost}, 0, 0)`;
+            ctx.strokeStyle = `rgba(${prevState.cost}, 0, 0, 0.5)`;
             ctx.stroke();
         });
         if(car.goal){
+            const drawPath = (goal: State) => {
+                ctx.beginPath();
+                ctx.ellipse(goal[0], goal[1], distRadius, distRadius, 0, 0, 2 * Math.PI);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(goal[0], goal[1]);
+                ctx.lineTo(goal[0] + 2 * distRadius * Math.cos(goal[2]),
+                    goal[1] + 2 * distRadius * Math.sin(goal[2]));
+                ctx.stroke();
+            }
+            ctx.lineWidth = 8;
+            ctx.strokeStyle = `#ffffff`;
+            drawPath(car.goal);
             ctx.lineWidth = 3;
             ctx.strokeStyle = `#ff00ff`;
-            ctx.beginPath();
-            ctx.ellipse(car.goal[0], car.goal[1], distRadius, distRadius, 0, 0, 2 * Math.PI);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(car.goal[0], car.goal[1]);
-            ctx.lineTo(car.goal[0] + 2 * distRadius * Math.cos(car.goal[2]),
-                car.goal[1] + 2 * distRadius * Math.sin(car.goal[2]));
-            ctx.stroke();
+            drawPath(car.goal);
         }
         room.render(ctx, hit ? hit[0] : null);
     }

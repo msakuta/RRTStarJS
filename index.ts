@@ -353,7 +353,11 @@ function render(){
     }
     const carElem = document.getElementById("car");
     if(carElem)
-        carElem.innerHTML = `${car.x.toFixed(2)}, ${car.y.toFixed(2)}, hit: ${hit} searchTree size: ${searchTree.length} skipped: ${skippedNodes}`;
+        carElem.innerHTML = `x: ${car.x.toFixed(2)}, y: ${car.y.toFixed(2)}, heading: ${car.angle.toFixed(2)
+            } searchTree size: ${searchTree.length} skipped: ${skippedNodes}`;
+    const autopilotElem = document.getElementById("autopilot");
+    if(autopilotElem)
+        autopilotElem.innerHTML = car.auto ? "on" : "off";
 }
 
 class ButtonState{

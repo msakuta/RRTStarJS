@@ -41,13 +41,21 @@ class Car {
     auto = true;
     goal = null;
     path = null;
-    renderFrame(ctx, x, y, angle) {
+    renderFrame(ctx, x, y, angle, drawDirection = false) {
         ctx.save();
         ctx.translate(x, y);
         ctx.rotate(angle);
         ctx.beginPath();
         ctx.rect(-10, -5, 20, 10);
         ctx.stroke();
+        if (drawDirection) {
+            ctx.beginPath();
+            ctx.moveTo(5, -3);
+            ctx.lineTo(5, 3);
+            ctx.lineTo(9, 0);
+            ctx.closePath();
+            ctx.stroke();
+        }
         ctx.restore();
     }
     render(ctx) {
@@ -55,7 +63,7 @@ class Car {
         this.prediction().forEach(([x, y, angle])=>this.renderFrame(ctx, x, y, angle)
         );
         ctx.strokeStyle = "#000";
-        this.renderFrame(ctx, this.x, this.y, this.angle);
+        this.renderFrame(ctx, this.x, this.y, this.angle, true);
     }
     move(x, y) {
         this.desiredSpeed = Math.min(MAX_SPEED, Math.max(-MAX_SPEED, this.desiredSpeed + x));
@@ -439,6 +447,7 @@ window.onkeyup = (ev)=>{
             break;
         case 'z':
             car.auto = !car.auto;
+            if (!car.auto) searchTree.length = 0;
             break;
     }
 };
@@ -475,7 +484,7 @@ function step() {
     if (buttonState.s) car.move(-0.05, 0);
     if (!buttonState.w && !buttonState.s) car.move(0, 0);
     car.step(width2, height2, room);
-    if ((t++) % 10 === 0) {
+    if ((t++) % 10 === 0 && car.auto) {
         searchTree = [];
         skippedNodes = car.search(15, room, (prevState, nextState)=>{
             searchTree.push([

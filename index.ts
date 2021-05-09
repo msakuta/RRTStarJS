@@ -306,6 +306,14 @@ function render(){
             ctx.strokeStyle = `#ff00ff`;
             drawPath(car.goal);
         }
+        if(dragStart && dragTarget){
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = `#ff00ff`;
+            ctx.beginPath();
+            ctx.moveTo(dragStart[0], dragStart[1]);
+            ctx.lineTo(dragTarget[0], dragTarget[1]);
+            ctx.stroke();
+        }
         room.render(ctx, hit ? hit[0] : null);
     }
     const carElem = document.getElementById("car");
@@ -342,15 +350,22 @@ window.onkeyup = (ev: KeyboardEvent) => {
 }
 
 let dragStart: [number, number] | undefined;
+let dragTarget: [number, number] | undefined;
 
 canvas.addEventListener("mousedown", (ev: MouseEvent) => {
     dragStart = [ev.clientX, ev.clientY];
+});
+
+canvas.addEventListener("mousemove", (ev: MouseEvent) => {
+    dragTarget = [ev.clientX, ev.clientY];
 });
 
 canvas.addEventListener("mouseup", (ev: MouseEvent) => {
     if(dragStart){
         car.goal = [dragStart[0], dragStart[1], Math.atan2(ev.clientY - dragStart[1], ev.clientX - dragStart[0])];
         car.path = null;
+        dragStart = undefined;
+        dragTarget = undefined;
     }
 })
 

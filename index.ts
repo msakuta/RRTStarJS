@@ -3,8 +3,8 @@
 const MAX_SPEED = 2.;
 
 class Car{
-    x = 10;
-    y = 10;
+    x = 100;
+    y = 100;
     angle = 0;
     steer = 0;
     speed = 0;
@@ -43,13 +43,31 @@ class Car{
     }
 }
 
+class Room {
+    walls: number[][] = [];
+    constructor(){
+        this.walls = [
+            [10, 10],
+            [240, 10],
+            [240, 100],
+            [260, 100],
+            [260, 10],
+            [490, 10],
+            [490, 490],
+            [10, 490],
+        ];
+    }
+
+    render(ctx: CanvasRenderingContext2D){
+        ctx.beginPath();
+        this.walls.forEach((pos) => ctx.lineTo(pos[0], pos[1]));
+        ctx.closePath();
+        ctx.stroke();
+    }
+}
+
 let car = new Car();
-
-console.log(`Car is at ${car.x}, ${car.y}`);
-
-const carElem = document.getElementById("car");
-if(carElem)
-    carElem.innerHTML = `${car.x}, ${car.y}`;
+let room = new Room();
 
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 function render(){
@@ -57,12 +75,12 @@ function render(){
     if(ctx){
         const {width, height} = canvas.getBoundingClientRect();
         ctx.clearRect(0, 0, width, height);
-        ctx.beginPath();
-        ctx.moveTo(10, 10);
-        ctx.lineTo(50, 50);
-        ctx.stroke();
         car.render(ctx);
+        room.render(ctx);
     }
+    const carElem = document.getElementById("car");
+    if(carElem)
+        carElem.innerHTML = `${car.x}, ${car.y}`;
 }
 
 class ButtonState{

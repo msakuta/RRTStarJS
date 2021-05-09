@@ -380,7 +380,11 @@ window.onkeyup = (ev: KeyboardEvent) => {
         case 'w': buttonState.w = false; break;
         case 's': buttonState.s = false; break;
         case 'a': case 'd': car.moveSteer(0); break;
-        case 'z': car.auto = !car.auto; break;
+        case 'z':
+            car.auto = !car.auto;
+            if(!car.auto)
+                searchTree.length = 0;
+            break;
     }
 }
 
@@ -416,7 +420,7 @@ function step(){
         car.move(0, 0);
     car.step(width, height, room);
 
-    if(t++ % 10 === 0){
+    if(t++ % 10 === 0 && car.auto){
         searchTree = [];
         skippedNodes = car.search(15, room, (prevState, nextState) => {
             searchTree.push([prevState, nextState]);

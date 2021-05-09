@@ -2,6 +2,12 @@
 
 Very simple script to demonstrate RRT* pathfinding.
 
+Try it now on your browser! https://msakuta.github.io/RRTStarJS/
+
+## Screenshot
+
+![screenshot](images/RRTstar.png)
+
 ## How to build
 
 This project assumes [deno](https://deno.land/) but you could use Node.js to build.

@@ -22,6 +22,9 @@ jobs:
 
     - run: deno bundle --config tsconfig.json index.ts index.js
 
+    # Don't ignore product
+    - run: rm .gitignore
+
     - name: Deploy
       uses: peaceiris/actions-gh-pages@v3
       with:

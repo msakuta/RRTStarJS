@@ -21,6 +21,15 @@ class StateWithCost extends State {
 }
 
 const distRadius = 10;
+const distThreshold = distRadius * distRadius;
+const wrapAngle = (x: number) => x - Math.floor((x + Math.PI) / (2 * Math.PI)) * (2 * Math.PI);
+const compareState = (s1: State, s2: State) => {
+    let deltaX = s1[0] - s2[0];
+    let deltaY = s1[1] - s2[1];
+    let deltaAngle = wrapAngle(s1[2] - s2[2]);
+    return deltaX * deltaX + deltaY * deltaY < distThreshold && Math.abs(deltaAngle) < Math.PI / 4.;
+}
+
 
 class Car{
     x = 100;
@@ -29,6 +38,7 @@ class Car{
     steer = 0;
     desiredSteer = 0;
     speed = 0;
+    desiredSpeed = 0;
     goal: State | null = null;
     path: State[] | null = null;
 
@@ -67,7 +77,14 @@ class Car{
     }
 
     step(width: number, height: number, room: Room, deltaTime: number = 1){
-        this.speed = 0 < this.speed ? Math.max(0, this.speed - 0.01) : Math.min(0, this.speed + 0.01);
+        if(this.path && 1 < this.path.length){
+            if(compareState(this.path[this.path.length-1], [this.x, this.y, this.angle]))
+                this.path.pop();
+            this.desiredSpeed = 1;
+            this.desiredSteer = wrapAngle(this.path[this.path.length-1][2] - this.angle);
+        }
+        this.speed = this.desiredSpeed < this.speed ?
+            Math.max(this.desiredSpeed, this.speed - 0.01) : Math.min(this.desiredSpeed, this.speed + 0.01);
         const STEER_SPEED = 0.1;
         this.steer = Math.abs(this.steer - this.desiredSteer) < deltaTime * STEER_SPEED ? this.desiredSteer
             : this.steer < this.desiredSteer ? this.steer + deltaTime * STEER_SPEED
@@ -107,15 +124,6 @@ class Car{
         };
         let nodes: StateWithCost[] = [];
         let skippedNodes = 0;
-
-        const distThreshold = distRadius * distRadius;
-        const wrapAngle = (x: number) => x - Math.floor((x + Math.PI) / (2 * Math.PI)) * (2 * Math.PI);
-        const compareState = (s1: State, s2: State) => {
-            let deltaX = s1[0] - s2[0];
-            let deltaY = s1[1] - s2[1];
-            let deltaAngle = wrapAngle(s1[2] - s2[2]);
-            return deltaX * deltaX + deltaY * deltaY < distThreshold && Math.abs(deltaAngle) < Math.PI / 4.;
-        }
 
         const search = (start: StateWithCost, depth: number) => {
             if(depth < 1)

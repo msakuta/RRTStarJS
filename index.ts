@@ -9,13 +9,17 @@ class State {
 
 class StateWithCost extends State {
     cost = 0;
+    steer = 0;
+    speed = 1;
     from: StateWithCost | null = null;
-    constructor(state: State, cost: number){
+    constructor(state: State, cost: number, steer: number, speed: number){
         super();
         this[0] = state[0];
         this[1] = state[1];
         this[2] = state[2];
         this.cost = cost;
+        this.steer = steer;
+        this.speed = speed;
         this.from = null;
     }
 }
@@ -39,8 +43,9 @@ class Car{
     desiredSteer = 0;
     speed = 0;
     desiredSpeed = 0;
+    auto: boolean = true;
     goal: State | null = null;
-    path: State[] | null = null;
+    path: StateWithCost[] | null = null;
 
     renderFrame(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number){
         ctx.save();
@@ -60,7 +65,7 @@ class Car{
     }
 
     move(x: number, y: number) {
-        this.speed = Math.min(MAX_SPEED, Math.max(-MAX_SPEED, this.speed + x));
+        this.desiredSpeed = Math.min(MAX_SPEED, Math.max(-MAX_SPEED, this.desiredSpeed + x));
     }
 
     moveSteer(steer: number){
@@ -77,14 +82,24 @@ class Car{
     }
 
     step(width: number, height: number, room: Room, deltaTime: number = 1){
-        if(this.path && 1 < this.path.length){
-            if(compareState(this.path[this.path.length-1], [this.x, this.y, this.angle]))
-                this.path.pop();
-            this.desiredSpeed = 1;
-            this.desiredSteer = wrapAngle(this.path[this.path.length-1][2] - this.angle);
+        if(this.auto){
+            if(this.goal && this.path && !compareState(this.goal, [this.x, this.y, this.angle])){
+                const nextNode = 1 < this.path.length ? this.path[this.path.length - 1] : {...this.goal, steer: this.steer, speed: this.speed};
+                if(compareState(nextNode, [this.x, this.y, this.angle]))
+                    this.path.pop();
+                const [dx, dy] = [this.goal[0] - this.x, this.goal[1] - this.y];
+                if(Math.abs(wrapAngle(this.goal[2] - this.angle)) < Math.PI / 4.)
+                    this.desiredSpeed = Math.sign(nextNode.speed) * Math.min(1, Math.max(0, (Math.sqrt(dx * dx + dy * dy) - distRadius) / 50));
+                else
+                    this.desiredSpeed = Math.sign(nextNode.speed);
+                this.desiredSteer = nextNode.steer;
+            }
+            else{
+                this.desiredSpeed = 0.;
+            }
         }
         this.speed = this.desiredSpeed < this.speed ?
-            Math.max(this.desiredSpeed, this.speed - 0.01) : Math.min(this.desiredSpeed, this.speed + 0.01);
+            Math.max(this.desiredSpeed, this.speed - 0.1) : Math.min(this.desiredSpeed, this.speed + 0.1);
         const STEER_SPEED = 0.1;
         this.steer = Math.abs(this.steer - this.desiredSteer) < deltaTime * STEER_SPEED ? this.desiredSteer
             : this.steer < this.desiredSteer ? this.steer + deltaTime * STEER_SPEED
@@ -114,9 +129,9 @@ class Car{
     search(depth: number = 3, room: Room, callback: (prevPos: StateWithCost, nextPos: StateWithCost) => void){
         const interpolate = (start: State, steer: number, distance: number, fn: (state: State) => boolean) => {
             const INTERPOLATE_INTERVAL = 10.;
-            const interpolates = Math.floor(distance / INTERPOLATE_INTERVAL);
+            const interpolates = Math.floor(Math.abs(distance) / INTERPOLATE_INTERVAL);
             for(let i = 0; i < interpolates; i++){
-                let next = this.stepMove(start[0], start[1], start[2], steer, 1, i * INTERPOLATE_INTERVAL);
+                let next = this.stepMove(start[0], start[1], start[2], steer, 1, Math.sign(distance) * i * INTERPOLATE_INTERVAL);
                 if(fn(next))
                     return true;
             }
@@ -125,7 +140,7 @@ class Car{
         let nodes: StateWithCost[] = [];
         let skippedNodes = 0;
 
-        const search = (start: StateWithCost, depth: number) => {
+        const search = (start: StateWithCost, depth: number, direction: number) => {
             if(depth < 1)
                 return;
             if(this.goal && compareState(start, this.goal)){
@@ -137,13 +152,13 @@ class Car{
             for(let i = 0; i <= 5; i++){
                 let [x, y, angle] = [start[0], start[1], start[2]];
                 let steer = Math.random() - 0.5;
-                let distance = 2 + Math.random() * 100;
-                let next = this.stepMove(x, y, angle, steer, 1, distance);
-                let hit = interpolate(start, steer, distance, (state) => 0 <= state[0] && state[0] < room.width &&
+                let distance = 10 + Math.random() * 50;
+                let next = this.stepMove(x, y, angle, steer, 1, direction * distance);
+                let hit = interpolate(start, steer, direction * distance, (state) => 0 <= state[0] && state[0] < room.width &&
                     0 <= state[1] && state[1] < room.height &&
                     room.checkHit({x: state[0], y: state[1]}) !== null);
                 if(!hit){
-                    let node = new StateWithCost(next, start.cost + distance);
+                    let node = new StateWithCost(next, start.cost + distance, steer, direction);
                     let foundNode = null;
                     for(let existingNode of nodes){
                         if(compareState(existingNode, node)){
@@ -159,7 +174,7 @@ class Car{
                         node.from = start;
                         nodes.push(node);
                         // callback(start, node);
-                        search(node, depth - 1);
+                        search(node, depth - 1, direction);
                     }
                     else{
                         skippedNodes++;
@@ -167,7 +182,10 @@ class Car{
                 }
             }
         };
-        search(new StateWithCost([this.x, this.y, this.angle], 0), depth);
+        if(-0.1 < this.speed)
+            search(new StateWithCost([this.x, this.y, this.angle], 0, 0, 1), depth, 1);
+        if(this.speed < 0.1)
+            search(new StateWithCost([this.x, this.y, this.angle], 0, 0, -1), depth, -1);
         nodes.forEach(node => {
             if(node.from)
                 callback(node.from, node);
@@ -354,6 +372,7 @@ window.onkeyup = (ev: KeyboardEvent) => {
         case 'w': buttonState.w = false; break;
         case 's': buttonState.s = false; break;
         case 'a': case 'd': car.moveSteer(0); break;
+        case 'z': car.auto = !car.auto; break;
     }
 }
 
@@ -391,7 +410,7 @@ function step(){
 
     if(t++ % 10 === 0){
         searchTree = [];
-        skippedNodes = car.search(10, room, (prevState, nextState) => {
+        skippedNodes = car.search(15, room, (prevState, nextState) => {
             searchTree.push([prevState, nextState]);
         });
     }

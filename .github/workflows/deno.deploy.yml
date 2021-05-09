@@ -1,0 +1,29 @@
+
+name: Deno deploy
+
+on:
+  push:
+    branches: [ master ]
+
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Setup repo
+      uses: actions/checkout@v2
+
+    - name: Setup Deno
+      uses: denoland/setup-deno@main
+      with:
+        deno-version: ${{ matrix.deno }} # tests across multiple Deno versions
+
+    - run: deno bundle --config tsconfig.json index.ts index.js
+
+    - name: Deploy
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: .

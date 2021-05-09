@@ -24,13 +24,13 @@ class Car{
         this.steer = steer;
     }
 
-    step(width: number, height: number){
+    step(width: number, height: number, room: Room){
         this.speed = 0 < this.speed ? Math.max(0, this.speed - 0.01) : Math.min(0, this.speed + 0.01);
         const [x, y] = [this.speed, 0];
         const angle = this.angle + this.steer * x * 0.01 * Math.PI;
         const dx = Math.cos(angle) * x - Math.sin(angle) * y + this.x;
         const dy = Math.sin(angle) * x + Math.cos(angle) * y + this.y;
-        if(0 < dx && dx < width && 0 < dy && dy < height){
+        if(0 < dx && dx < width && 0 < dy && dy < height && !room.checkHit({x: dx, y: dy})){
             this.x = dx;
             this.y = dy;
             this.angle = angle;
@@ -75,11 +75,11 @@ class Room {
         ctx.stroke();
     }
 
-    checkHit(car: Car): number[] | null {
-        function zipAdjacent(a1: any[]) {
+    checkHit(car: {x: number, y: number}): number[] | null {
+        function zipAdjacent(a: any[]) {
             let ret = [];
-            for(let i = 0; i < a1.length-1; i++){
-                ret.push([a1[i], a1[i+1]]);
+            for(let i = 0; i < a.length; i++){
+                ret.push([a[i], a[(i + 1) % a.length]]);
             }
             return ret;
         }
@@ -169,7 +169,7 @@ function step(){
         car.move(-0.05, 0);
     if(!buttonState.w && !buttonState.s)
         car.move(0, 0);
-    car.step(width, height);
+    car.step(width, height, room);
     render();
 
     requestAnimationFrame(step);

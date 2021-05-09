@@ -33,9 +33,10 @@ class Car{
         this.desiredSteer = steer;
     }
 
-    private stepMove(px: number, py: number, angle: number, deltaTime: number = 1) {
-        const [x, y] = [this.speed * deltaTime, 0];
-        angle = angle + this.steer * x * 0.01 * Math.PI;
+    private stepMove(px: number, py: number, angle: number, steer: number, speed?: number, deltaTime: number = 1): [number, number, number] {
+        speed ??= this.speed;
+        const [x, y] = [speed * deltaTime, 0];
+        angle = angle + steer * x * 0.01 * Math.PI;
         const dx = Math.cos(angle) * x - Math.sin(angle) * y + px;
         const dy = Math.sin(angle) * x + Math.cos(angle) * y + py;
         return [dx, dy, angle];
@@ -47,7 +48,7 @@ class Car{
         this.steer = Math.abs(this.steer - this.desiredSteer) < deltaTime * STEER_SPEED ? this.desiredSteer
             : this.steer < this.desiredSteer ? this.steer + deltaTime * STEER_SPEED
             : this.steer - deltaTime * STEER_SPEED;
-        const [dx, dy, angle] = this.stepMove(this.x, this.y, this.angle);
+        const [dx, dy, angle] = this.stepMove(this.x, this.y, this.angle, this.steer);
         if(0 < dx && dx < width && 0 < dy && dy < height && !room.checkHit({x: dx, y: dy})){
             this.x = dx;
             this.y = dy;
@@ -63,9 +64,24 @@ class Car{
         const ret = [];
         for(let t = 0; t < 10; t++){
             ret.push([x, y, angle]);
-            [x, y, angle] = this.stepMove(x, y, angle, 2);
+            [x, y, angle] = this.stepMove(x, y, angle, this.steer, undefined, 2);
         }
         return ret;
+    }
+
+    search(depth: number = 3, callback: (prevPos: number[], nextPos: number[]) => void){
+        const search = (start: [number, number, number], depth: number) => {
+            if(depth < 1)
+                return;
+            for(let i = -1; i <= 1; i++){
+                let [x, y, angle] = [start[0], start[1], start[2]];
+                let next = this.stepMove(x, y, angle, 1. * i, 1, 20);
+                callback([x, y, angle], next);
+                search(next, depth - 1);
+            }
+        };
+        search(
+            [this.x, this.y, this.angle], depth);
     }
 }
 
@@ -158,6 +174,13 @@ function render(){
         const {width, height} = canvas.getBoundingClientRect();
         ctx.clearRect(0, 0, width, height);
         car.render(ctx);
+        ctx.strokeStyle = "#f77";
+        ctx.beginPath();
+        car.search(4, (prevState, nextState) => {
+            ctx.moveTo(prevState[0], prevState[1]);
+            ctx.lineTo(nextState[0], nextState[1]);
+        });
+        ctx.stroke();
         room.render(ctx, hit ? hit[0] : null);
     }
     const carElem = document.getElementById("car");

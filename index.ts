@@ -20,6 +20,8 @@ class StateWithCost extends State {
     }
 }
 
+const distRadius = 10;
+
 class Car{
     x = 100;
     y = 100;
@@ -27,6 +29,8 @@ class Car{
     steer = 0;
     desiredSteer = 0;
     speed = 0;
+    goal: State | null = null;
+    path: State[] | null = null;
 
     renderFrame(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number){
         ctx.save();
@@ -103,9 +107,25 @@ class Car{
         };
         let nodes: StateWithCost[] = [];
         let skippedNodes = 0;
+
+        const distThreshold = distRadius * distRadius;
+        const wrapAngle = (x: number) => x - Math.floor((x + Math.PI) / (2 * Math.PI)) * (2 * Math.PI);
+        const compareState = (s1: State, s2: State) => {
+            let deltaX = s1[0] - s2[0];
+            let deltaY = s1[1] - s2[1];
+            let deltaAngle = wrapAngle(s1[2] - s2[2]);
+            return deltaX * deltaX + deltaY * deltaY < distThreshold && Math.abs(deltaAngle) < Math.PI / 4.;
+        }
+
         const search = (start: StateWithCost, depth: number) => {
             if(depth < 1)
                 return;
+            if(this.goal && compareState(start, this.goal)){
+                this.path = [];
+                for(let node = start; start.from; start = start.from)
+                    this.path.push(start);
+                return;
+            }
             for(let i = 0; i <= 5; i++){
                 let [x, y, angle] = [start[0], start[1], start[2]];
                 let steer = Math.random() - 0.5;
@@ -115,16 +135,10 @@ class Car{
                     0 <= state[1] && state[1] < room.height &&
                     room.checkHit({x: state[0], y: state[1]}) !== null);
                 if(!hit){
-                    const distRadius = 10;
-                    const distThreshold = distRadius * distRadius;
-                    const wrapAngle = (x: number) => x - Math.floor((x + Math.PI) / (2 * Math.PI)) * (2 * Math.PI);
                     let node = new StateWithCost(next, start.cost + distance);
                     let foundNode = null;
                     for(let existingNode of nodes){
-                        let deltaX = existingNode[0] - node[0];
-                        let deltaY = existingNode[1] - node[1];
-                        let deltaAngle = wrapAngle(existingNode[2] - node[2]);
-                        if(deltaX * deltaX + deltaY * deltaY < distThreshold && Math.abs(deltaAngle) < Math.PI / 4.){
+                        if(compareState(existingNode, node)){
                             if(existingNode.cost > node.cost){
                                 existingNode.cost = node.cost;
                                 existingNode.from = start;
@@ -152,6 +166,21 @@ class Car{
         })
         return skippedNodes;
     }
+}
+
+function zipAdjacent<T>(a: T[]): [T, T][] {
+    let ret: [T, T][] = [];
+    for(let i = 0; i < a.length; i++){
+        ret.push([a[i], a[(i + 1) % a.length]]);
+    }
+    return ret;
+}
+function zipAdjacentReduce(a: any[], fn: (a: any, b: any, acc: any) => any, initialValue: any) {
+    let ret = initialValue;
+    for(let i = 0; i < a.length-1; i++){
+        ret = fn(a[i], a[i+1], ret);
+    }
+    return ret;
 }
 
 class Room {
@@ -197,20 +226,6 @@ class Room {
     }
 
     checkHit(car: {x: number, y: number}): number[] | null {
-        function zipAdjacent(a: any[]) {
-            let ret = [];
-            for(let i = 0; i < a.length; i++){
-                ret.push([a[i], a[(i + 1) % a.length]]);
-            }
-            return ret;
-        }
-        function zipAdjacentReduce(a: any[], fn: (a: any, b: any, acc: any) => any, initialValue: any) {
-            let ret = initialValue;
-            for(let i = 0; i < a.length-1; i++){
-                ret = fn(a[i], a[i+1], ret);
-            }
-            return ret;
-        }
         let hit = zipAdjacent(this.walls).reduce((acc: number[] | null, [pos, nextPos]: number[][], idx: number) => {
             function distanceToLine(line0: number[], line1: number[], pos: number[]): number {
                 const direction = [line1[0] - line0[0], line1[1] - line0[1]];
@@ -254,14 +269,37 @@ function render(){
         const {width, height} = canvas.getBoundingClientRect();
         ctx.clearRect(0, 0, width, height);
         car.render(ctx);
-        ctx.strokeStyle = "#f77";
+        if(car.path && car.goal){
+            ctx.strokeStyle = "#00f";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(car.goal[0], car.goal[1]);
+            car.path.forEach(node => {
+                ctx.lineTo(node[0], node[1]);
+            });
+            ctx.lineTo(car.x, car.y);
+            ctx.stroke();
+        }
         searchTree.forEach(([prevState, nextState]: [StateWithCost, StateWithCost]) => {
+            ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.moveTo(prevState[0], prevState[1]);
             ctx.lineTo(nextState[0], nextState[1]);
             ctx.strokeStyle = `rgb(${prevState.cost}, 0, 0)`;
             ctx.stroke();
         });
+        if(car.goal){
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = `#ff00ff`;
+            ctx.beginPath();
+            ctx.ellipse(car.goal[0], car.goal[1], distRadius, distRadius, 0, 0, 2 * Math.PI);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(car.goal[0], car.goal[1]);
+            ctx.lineTo(car.goal[0] + 2 * distRadius * Math.cos(car.goal[2]),
+                car.goal[1] + 2 * distRadius * Math.sin(car.goal[2]));
+            ctx.stroke();
+        }
         room.render(ctx, hit ? hit[0] : null);
     }
     const carElem = document.getElementById("car");
@@ -296,6 +334,19 @@ window.onkeyup = (ev: KeyboardEvent) => {
         case 'a': case 'd': car.moveSteer(0); break;
     }
 }
+
+let dragStart: [number, number] | undefined;
+
+canvas.addEventListener("mousedown", (ev: MouseEvent) => {
+    dragStart = [ev.clientX, ev.clientY];
+});
+
+canvas.addEventListener("mouseup", (ev: MouseEvent) => {
+    if(dragStart){
+        car.goal = [dragStart[0], dragStart[1], Math.atan2(ev.clientY - dragStart[1], ev.clientX - dragStart[0])];
+        car.path = null;
+    }
+})
 
 let t = 0;
 

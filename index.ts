@@ -5,6 +5,7 @@ class Car{
     y = 100;
     angle = 0;
     steer = 0;
+    desiredSteer = 0;
     speed = 0;
 
     renderFrame(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number){
@@ -29,7 +30,7 @@ class Car{
     }
 
     moveSteer(steer: number){
-        this.steer = steer;
+        this.desiredSteer = steer;
     }
 
     private stepMove(px: number, py: number, angle: number, deltaTime: number = 1) {
@@ -40,8 +41,12 @@ class Car{
         return [dx, dy, angle];
     }
 
-    step(width: number, height: number, room: Room){
+    step(width: number, height: number, room: Room, deltaTime: number = 1){
         this.speed = 0 < this.speed ? Math.max(0, this.speed - 0.01) : Math.min(0, this.speed + 0.01);
+        const STEER_SPEED = 0.1;
+        this.steer = Math.abs(this.steer - this.desiredSteer) < deltaTime * STEER_SPEED ? this.desiredSteer
+            : this.steer < this.desiredSteer ? this.steer + deltaTime * STEER_SPEED
+            : this.steer - deltaTime * STEER_SPEED;
         const [dx, dy, angle] = this.stepMove(this.x, this.y, this.angle);
         if(0 < dx && dx < width && 0 < dy && dy < height && !room.checkHit({x: dx, y: dy})){
             this.x = dx;
@@ -76,6 +81,10 @@ class Room {
             [490, 10],
             [490, 490],
             [10, 490],
+            [10, 300],
+            [250, 300],
+            [250, 280],
+            [10, 280],
         ];
     }
 

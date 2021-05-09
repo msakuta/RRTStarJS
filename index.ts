@@ -6,14 +6,22 @@ class Car{
     angle = 0;
     steer = 0;
     speed = 0;
-    render(ctx: CanvasRenderingContext2D){
+
+    renderFrame(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number){
         ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.rotate(this.angle);
+        ctx.translate(x, y);
+        ctx.rotate(angle);
         ctx.beginPath();
         ctx.rect(-10, -5, 20, 10);
         ctx.stroke();
         ctx.restore();
+    }
+
+    render(ctx: CanvasRenderingContext2D){
+        ctx.strokeStyle = "#0f0";
+        this.prediction().forEach(([x, y, angle]) => this.renderFrame(ctx, x, y, angle));
+        ctx.strokeStyle = "#000";
+        this.renderFrame(ctx, this.x, this.y, this.angle);
     }
 
     move(x: number, y: number) {
@@ -24,12 +32,17 @@ class Car{
         this.steer = steer;
     }
 
+    private stepMove(px: number, py: number, angle: number, deltaTime: number = 1) {
+        const [x, y] = [this.speed * deltaTime, 0];
+        angle = angle + this.steer * x * 0.01 * Math.PI;
+        const dx = Math.cos(angle) * x - Math.sin(angle) * y + px;
+        const dy = Math.sin(angle) * x + Math.cos(angle) * y + py;
+        return [dx, dy, angle];
+    }
+
     step(width: number, height: number, room: Room){
         this.speed = 0 < this.speed ? Math.max(0, this.speed - 0.01) : Math.min(0, this.speed + 0.01);
-        const [x, y] = [this.speed, 0];
-        const angle = this.angle + this.steer * x * 0.01 * Math.PI;
-        const dx = Math.cos(angle) * x - Math.sin(angle) * y + this.x;
-        const dy = Math.sin(angle) * x + Math.cos(angle) * y + this.y;
+        const [dx, dy, angle] = this.stepMove(this.x, this.y, this.angle);
         if(0 < dx && dx < width && 0 < dy && dy < height && !room.checkHit({x: dx, y: dy})){
             this.x = dx;
             this.y = dy;
@@ -38,6 +51,16 @@ class Car{
         else{
             this.speed = 0;
         }
+    }
+
+    prediction() {
+        let [x, y, angle] = [this.x, this.y, this.angle];
+        const ret = [];
+        for(let t = 0; t < 10; t++){
+            ret.push([x, y, angle]);
+            [x, y, angle] = this.stepMove(x, y, angle, 2);
+        }
+        return ret;
     }
 }
 

@@ -69,15 +69,17 @@ class Car{
         return ret;
     }
 
-    search(depth: number = 3, callback: (prevPos: number[], nextPos: number[]) => void){
+    search(depth: number = 3, room: Room, callback: (prevPos: number[], nextPos: number[]) => void){
         const search = (start: [number, number, number], depth: number) => {
             if(depth < 1)
                 return;
             for(let i = -1; i <= 1; i++){
                 let [x, y, angle] = [start[0], start[1], start[2]];
                 let next = this.stepMove(x, y, angle, 1. * i, 1, 20);
-                callback([x, y, angle], next);
-                search(next, depth - 1);
+                if(room.checkHit({x, y}) === null){
+                    callback([x, y, angle], next);
+                    search(next, depth - 1);
+                }
             }
         };
         search(
@@ -176,7 +178,7 @@ function render(){
         car.render(ctx);
         ctx.strokeStyle = "#f77";
         ctx.beginPath();
-        car.search(4, (prevState, nextState) => {
+        car.search(5, room, (prevState, nextState) => {
             ctx.moveTo(prevState[0], prevState[1]);
             ctx.lineTo(nextState[0], nextState[1]);
         });

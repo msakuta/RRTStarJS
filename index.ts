@@ -47,13 +47,21 @@ class Car{
     goal: State | null = null;
     path: StateWithCost[] | null = null;
 
-    renderFrame(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number){
+    renderFrame(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number, drawDirection: boolean = false){
         ctx.save();
         ctx.translate(x, y);
         ctx.rotate(angle);
         ctx.beginPath();
         ctx.rect(-10, -5, 20, 10);
         ctx.stroke();
+        if(drawDirection){
+            ctx.beginPath();
+            ctx.moveTo(5, -3);
+            ctx.lineTo(5, 3);
+            ctx.lineTo(9, 0);
+            ctx.closePath();
+            ctx.stroke();
+        }
         ctx.restore();
     }
 
@@ -61,7 +69,7 @@ class Car{
         ctx.strokeStyle = "#0f0";
         this.prediction().forEach(([x, y, angle]) => this.renderFrame(ctx, x, y, angle));
         ctx.strokeStyle = "#000";
-        this.renderFrame(ctx, this.x, this.y, this.angle);
+        this.renderFrame(ctx, this.x, this.y, this.angle, true);
     }
 
     move(x: number, y: number) {

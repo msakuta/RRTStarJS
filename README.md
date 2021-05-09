@@ -8,6 +8,10 @@ Try it now on your browser! https://msakuta.github.io/RRTStarJS/
 
 ![screenshot](images/RRTstar.png)
 
+## Status
+
+Currently the path finding is very dumb and sometimes fails to find a path or even
+follow a found path.
 ## How to build
 
 This project assumes [deno](https://deno.land/) but you could use Node.js to build.

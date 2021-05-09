@@ -1,8 +1,8 @@
 const MAX_SPEED = 2;
 class State {
-    [0] = 0;
-    [1] = 0;
-    [2] = 0;
+    x = 0;
+    y = 0;
+    heading = 0;
 }
 class StateWithCost extends State {
     cost = 0;
@@ -11,9 +11,9 @@ class StateWithCost extends State {
     from = null;
     constructor(state, cost, steer1, speed1){
         super();
-        this[0] = state[0];
-        this[1] = state[1];
-        this[2] = state[2];
+        this.x = state.x;
+        this.y = state.y;
+        this.heading = state.heading;
         this.cost = cost;
         this.steer = steer1;
         this.speed = speed1;
@@ -25,9 +25,9 @@ const distThreshold = 10 * 10;
 const wrapAngle = (x)=>x - Math.floor((x + Math.PI) / (2 * Math.PI)) * (2 * Math.PI)
 ;
 const compareState = (s1, s2)=>{
-    let deltaX = s1[0] - s2[0];
-    let deltaY = s1[1] - s2[1];
-    let deltaAngle = wrapAngle(s1[2] - s2[2]);
+    let deltaX = s1.x - s2.x;
+    let deltaY = s1.y - s2.y;
+    let deltaAngle = wrapAngle(s1.heading - s2.heading);
     return deltaX * deltaX + deltaY * deltaY < distThreshold && Math.abs(deltaAngle) < Math.PI / 4;
 };
 class Car {
@@ -71,43 +71,40 @@ class Car {
     moveSteer(steer) {
         this.desiredSteer = steer;
     }
-    stepMove(px, py, angle, steer, speed, deltaTime = 1) {
+    stepMove(px, py, heading, steer, speed, deltaTime = 1) {
         speed ??= this.speed;
         const [x, y] = [
             speed * deltaTime,
             0
         ];
-        angle = angle + steer * x * 0.01 * Math.PI;
-        const dx = Math.cos(angle) * x - Math.sin(angle) * y + px;
-        const dy = Math.sin(angle) * x + Math.cos(angle) * y + py;
-        return [
-            dx,
-            dy,
-            angle
-        ];
+        heading = heading + steer * x * 0.01 * Math.PI;
+        const dx = Math.cos(heading) * x - Math.sin(heading) * y + px;
+        const dy = Math.sin(heading) * x + Math.cos(heading) * y + py;
+        return {
+            x: dx,
+            y: dy,
+            heading
+        };
     }
     step(width, height, room, deltaTime = 1) {
         if (this.auto) {
-            if (this.goal && this.path && !compareState(this.goal, [
-                this.x,
-                this.y,
-                this.angle
-            ])) {
+            const thisState = {
+                x: this.x,
+                y: this.y,
+                heading: this.angle
+            };
+            if (this.goal && this.path && !compareState(this.goal, thisState)) {
                 const nextNode = 1 < this.path.length ? this.path[this.path.length - 1] : {
                     ...this.goal,
                     steer: this.steer,
                     speed: this.speed
                 };
-                if (compareState(nextNode, [
-                    this.x,
-                    this.y,
-                    this.angle
-                ])) this.path.pop();
+                if (compareState(nextNode, thisState)) this.path.pop();
                 const [dx, dy] = [
-                    this.goal[0] - this.x,
-                    this.goal[1] - this.y
+                    this.goal.x - this.x,
+                    this.goal.y - this.y
                 ];
-                if (Math.abs(wrapAngle(this.goal[2] - this.angle)) < Math.PI / 4) this.desiredSpeed = Math.sign(nextNode.speed) * Math.min(1, Math.max(0, (Math.sqrt(dx * dx + dy * dy) - distRadius) / 50));
+                if (Math.abs(wrapAngle(this.goal.heading - this.angle)) < Math.PI / 4) this.desiredSpeed = Math.sign(nextNode.speed) * Math.min(1, Math.max(0, (Math.sqrt(dx * dx + dy * dy) - distRadius) / 50));
                 else this.desiredSpeed = Math.sign(nextNode.speed);
                 this.desiredSteer = nextNode.steer;
             } else {
@@ -117,20 +114,20 @@ class Car {
         this.speed = this.desiredSpeed < this.speed ? Math.max(this.desiredSpeed, this.speed - 0.1) : Math.min(this.desiredSpeed, this.speed + 0.1);
         const STEER_SPEED = 0.1;
         this.steer = Math.abs(this.steer - this.desiredSteer) < deltaTime * STEER_SPEED ? this.desiredSteer : this.steer < this.desiredSteer ? this.steer + deltaTime * STEER_SPEED : this.steer - deltaTime * STEER_SPEED;
-        const [dx, dy, angle] = this.stepMove(this.x, this.y, this.angle, this.steer);
+        const { x: dx , y: dy , heading  } = this.stepMove(this.x, this.y, this.angle, this.steer);
         if (0 < dx && dx < width && 0 < dy && dy < height && !room.checkHit({
             x: dx,
             y: dy
         })) {
             this.x = dx;
             this.y = dy;
-            this.angle = angle;
+            this.angle = heading;
         } else {
             this.speed = 0;
         }
     }
     prediction() {
-        let [x, y, angle] = [
+        let [x, y, heading] = [
             this.x,
             this.y,
             this.angle
@@ -140,9 +137,9 @@ class Car {
             ret.push([
                 x,
                 y,
-                angle
+                heading
             ]);
-            [x, y, angle] = this.stepMove(x, y, angle, this.steer, undefined, 2);
+            ({ x , y , heading  } = this.stepMove(x, y, heading, this.steer, undefined, 2));
         }
         return ret;
     }
@@ -151,7 +148,7 @@ class Car {
             const INTERPOLATE_INTERVAL = 10;
             const interpolates = Math.floor(Math.abs(distance) / 10);
             for(let i = 0; i < interpolates; i++){
-                let next = this.stepMove(start[0], start[1], start[2], steer2, 1, Math.sign(distance) * i * 10);
+                let next = this.stepMove(start.x, start.y, start.heading, steer2, 1, Math.sign(distance) * i * 10);
                 if (fn(next)) return true;
             }
             return false;
@@ -166,17 +163,13 @@ class Car {
                 return;
             }
             for(let i = 0; i <= 5; i++){
-                let [x, y, angle] = [
-                    start[0],
-                    start[1],
-                    start[2]
-                ];
+                let { x , y , heading  } = start;
                 let steer2 = Math.random() - 0.5;
                 let distance = 10 + Math.random() * 50;
-                let next = this.stepMove(x, y, angle, steer2, 1, direction * distance);
-                let hit = interpolate(start, steer2, direction * distance, (state1)=>0 <= state1[0] && state1[0] < room.width && 0 <= state1[1] && state1[1] < room.height && room.checkHit({
-                        x: state1[0],
-                        y: state1[1]
+                let next = this.stepMove(x, y, heading, steer2, 1, direction * distance);
+                let hit = interpolate(start, steer2, direction * distance, (state1)=>0 <= state1.x && state1.x < room.width && 0 <= state1.y && state1.y < room.height && room.checkHit({
+                        x: state1.x,
+                        y: state1.y
                     }) !== null
                 );
                 if (!hit) {
@@ -202,16 +195,16 @@ class Car {
                 }
             }
         };
-        if (-0.1 < this.speed) search(new StateWithCost([
-            this.x,
-            this.y,
-            this.angle
-        ], 0, 0, 1), depth, 1);
-        if (this.speed < 0.1) search(new StateWithCost([
-            this.x,
-            this.y,
-            this.angle
-        ], 0, 0, -1), depth, -1);
+        if (-0.1 < this.speed) search(new StateWithCost({
+            x: this.x,
+            y: this.y,
+            heading: this.angle
+        }, 0, 0, 1), depth, 1);
+        if (this.speed < 0.1) search(new StateWithCost({
+            x: this.x,
+            y: this.y,
+            heading: this.angle
+        }, 0, 0, -1), depth, -1);
         nodes.forEach((node)=>{
             if (node.from) callback(node.from, node);
         });
@@ -364,9 +357,9 @@ function render() {
             ctx.strokeStyle = "#00f";
             ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.moveTo(car.goal[0], car.goal[1]);
+            ctx.moveTo(car.goal.x, car.goal.y);
             car.path.forEach((node)=>{
-                ctx.lineTo(node[0], node[1]);
+                ctx.lineTo(node.x, node.y);
             });
             ctx.lineTo(car.x, car.y);
             ctx.stroke();
@@ -374,19 +367,19 @@ function render() {
         searchTree.forEach(([prevState, nextState])=>{
             ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.moveTo(prevState[0], prevState[1]);
-            ctx.lineTo(nextState[0], nextState[1]);
+            ctx.moveTo(prevState.x, prevState.y);
+            ctx.lineTo(nextState.x, nextState.y);
             ctx.strokeStyle = `rgba(${prevState.cost}, 0, 0, 0.5)`;
             ctx.stroke();
         });
         if (car.goal) {
             const drawPath = (goal)=>{
                 ctx.beginPath();
-                ctx.ellipse(goal[0], goal[1], 10, 10, 0, 0, 2 * Math.PI);
+                ctx.ellipse(goal.x, goal.y, 10, 10, 0, 0, 2 * Math.PI);
                 ctx.stroke();
                 ctx.beginPath();
-                ctx.moveTo(goal[0], goal[1]);
-                ctx.lineTo(goal[0] + 2 * 10 * Math.cos(goal[2]), goal[1] + 2 * 10 * Math.sin(goal[2]));
+                ctx.moveTo(goal.x, goal.y);
+                ctx.lineTo(goal.x + 2 * 10 * Math.cos(goal.heading), goal.y + 2 * 10 * Math.sin(goal.heading));
                 ctx.stroke();
             };
             ctx.lineWidth = 8;
@@ -407,7 +400,9 @@ function render() {
         room.render(ctx, hit ? hit[0] : null);
     }
     const carElem = document.getElementById("car");
-    if (carElem) carElem.innerHTML = `${car.x.toFixed(2)}, ${car.y.toFixed(2)}, hit: ${hit} searchTree size: ${searchTree.length} skipped: ${skippedNodes}`;
+    if (carElem) carElem.innerHTML = `x: ${car.x.toFixed(2)}, y: ${car.y.toFixed(2)}, heading: ${car.angle.toFixed(2)} searchTree size: ${searchTree.length} skipped: ${skippedNodes}`;
+    const autopilotElem = document.getElementById("autopilot");
+    if (autopilotElem) autopilotElem.innerHTML = car.auto ? "on" : "off";
 }
 class ButtonState {
     w = false;
@@ -467,11 +462,11 @@ canvas.addEventListener("mousemove", (ev)=>{
 });
 canvas.addEventListener("mouseup", (ev)=>{
     if (dragStart) {
-        car.goal = [
-            dragStart[0],
-            dragStart[1],
-            Math.atan2(ev.clientY - dragStart[1], ev.clientX - dragStart[0])
-        ];
+        car.goal = {
+            x: dragStart[0],
+            y: dragStart[1],
+            heading: Math.atan2(ev.clientY - dragStart[1], ev.clientX - dragStart[0])
+        };
         car.path = null;
         dragStart = undefined;
         dragTarget = undefined;

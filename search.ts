@@ -16,9 +16,9 @@ onmessage = function(e) {
         let car = new Car();
         car.copyFrom(e.data.car);
         const searchTree: [StateWithCost, StateWithCost][] = [];
-        car.search(15, room, (prevState, nextState) => {
+        car.search(20, room, (prevState, nextState) => {
             searchTree.push([prevState, nextState]);
-        });
+        }, e.data.switchBack);
         self.postMessage({
             searchTree,
             path: car.path,

@@ -119,7 +119,7 @@ export class Car{
     }
 
     /// RRT* search
-    search(depth: number = 3, room: Room, callback: (prevPos: StateWithCost, nextPos: StateWithCost) => void){
+    search(depth: number = 3, room: Room, callback: (prevPos: StateWithCost, nextPos: StateWithCost) => void, switchBack: boolean = false){
         const interpolate = (start: State, steer: number, distance: number, fn: (state: State) => boolean) => {
             const INTERPOLATE_INTERVAL = 10.;
             const interpolates = Math.floor(Math.abs(distance) / INTERPOLATE_INTERVAL);
@@ -145,13 +145,16 @@ export class Car{
             for(let i = 0; i <= 5; i++){
                 let {x, y, heading} = start;
                 let steer = Math.random() - 0.5;
+                let changeDirection = switchBack && Math.random() < 0.2;
+                const nextDirection = changeDirection ? -direction : direction;
                 let distance = 10 + Math.random() * 50;
-                let next = this.stepMove(x, y, heading, steer, 1, direction * distance);
-                let hit = interpolate(start, steer, direction * distance, (state) => 0 <= state.x && state.x < room.width &&
+                let next = this.stepMove(x, y, heading, steer, 1, nextDirection * distance);
+                let hit = interpolate(start, steer, nextDirection * distance, (state) => 0 <= state.x && state.x < room.width &&
                     0 <= state.y && state.y < room.height &&
                     room.checkHit({x: state.x, y: state.y}) !== null);
                 if(!hit){
-                    let node = new StateWithCost(next, start.cost + distance, steer, direction);
+                    // Changing direction costs
+                    let node = new StateWithCost(next, start.cost + distance + (changeDirection ? 1000 : 0), steer, nextDirection);
                     let foundNode = null;
                     for(let existingNode of nodes){
                         if(compareState(existingNode, node)){
@@ -167,7 +170,7 @@ export class Car{
                         node.from = start;
                         nodes.push(node);
                         // callback(start, node);
-                        search(node, depth - 1, direction);
+                        search(node, depth - 1, nextDirection);
                     }
                     else{
                         skippedNodes++;
@@ -175,9 +178,9 @@ export class Car{
                 }
             }
         };
-        if(-0.1 < this.speed)
+        if(switchBack || -0.1 < this.speed)
             search(new StateWithCost({x: this.x, y: this.y, heading: this.angle}, 0, 0, 1), depth, 1);
-        if(this.speed < 0.1)
+        if(switchBack || this.speed < 0.1)
             search(new StateWithCost({x: this.x, y: this.y, heading: this.angle}, 0, 0, -1), depth, -1);
         nodes.forEach(node => {
             if(node.from)

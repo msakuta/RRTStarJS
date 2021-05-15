@@ -193,9 +193,12 @@ canvas.addEventListener("mouseup", (ev: MouseEvent) => {
     }
 })
 
+let pendingSearch = false;
+
 webWorker.onmessage = (e) => {
     searchTree = e.data.searchTree;
     car.path = e.data.path;
+    pendingSearch = false;
 };
 
 let t = 0;
@@ -210,9 +213,12 @@ function step(){
         car.move(0, 0);
     car.step(width, height, room);
 
-    if(t++ % 10 === 0 && car.auto){
+    if(t++ % 10 === 0 && car.auto && !pendingSearch){
+        const switchBackCheck = document.getElementById('switchBack') as HTMLInputElement;
+        pendingSearch = true;
         webWorker.postMessage({
             type: "search",
+            switchBack: switchBackCheck?.checked,
             car,
         })
     }

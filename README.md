@@ -16,9 +16,13 @@ follow a found path.
 
 This project assumes [deno](https://deno.land/) but you could use Node.js to build.
 
+Install [bundler](https://deno.land/x/bundler@0.7.0) by
+
+    deno install --unstable --allow-read --allow-write --allow-net --allow-env --name bundler https://deno.land/x/bundler/cli.ts
+
 Compile with
 
-    deno bundle --config tsconfig.json .\index.ts index.js
+    bundler bundle --config tsconfig.json index.ts=index.js
 
 and start a file server by installing file server
 

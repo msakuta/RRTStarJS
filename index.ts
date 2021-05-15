@@ -4,9 +4,56 @@ import { Car, distRadius, State, StateWithCost } from './Car.ts';
 
 const MAX_SPEED = 2.;
 
+class CarRender extends Car {
+    render(ctx: CanvasRenderingContext2D){
+        ctx.strokeStyle = "#0f0";
+        this.prediction().forEach(([x, y, angle]) => this.renderFrame(ctx, x, y, angle));
+        ctx.strokeStyle = "#000";
+        this.renderFrame(ctx, this.x, this.y, this.angle, true);
+    }
+
+    renderFrame(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number, drawDirection: boolean = false){
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+        ctx.beginPath();
+        ctx.rect(-10, -5, 20, 10);
+        ctx.stroke();
+        if(drawDirection){
+            ctx.beginPath();
+            ctx.moveTo(5, -3);
+            ctx.lineTo(5, 3);
+            ctx.lineTo(9, 0);
+            ctx.closePath();
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+}
+
+class RoomRender extends Room {
+    render(ctx: CanvasRenderingContext2D, highlight: number | null){
+        if(highlight !== null){
+            ctx.strokeStyle = "#f00";
+            ctx.lineWidth = 5;
+            ctx.beginPath();
+            const v0 = this.walls[highlight];
+            const v1 = this.walls[(highlight + 1) % this.walls.length];
+            ctx.moveTo(v0[0], v0[1])
+            ctx.lineTo(v1[0], v1[1]);
+            ctx.stroke();
+        }
+        ctx.strokeStyle = "#000";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        this.walls.forEach((pos) => ctx.lineTo(pos[0], pos[1]));
+        ctx.closePath();
+        ctx.stroke();
+    }
+}
+
 var webWorker = new Worker("search.js");
 
-webWorker.postMessage("Hello");
 console.log('Message posted to worker');
 
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
@@ -14,11 +61,17 @@ if(!canvas){
     throw "canvas must exist";
 }
 
-let car = new Car();
+let car = new CarRender();
 const {width, height} = canvas.getBoundingClientRect();
-let room = new Room(width, height);
+let room = new RoomRender(width, height);
 let searchTree: [StateWithCost, StateWithCost][] = [];
 let skippedNodes = 0;
+
+webWorker.postMessage({
+    type: "initRoom",
+    width,
+    height,
+});
 
 function render(){
     const ctx = canvas?.getContext("2d");
@@ -140,6 +193,11 @@ canvas.addEventListener("mouseup", (ev: MouseEvent) => {
     }
 })
 
+webWorker.onmessage = (e) => {
+    searchTree = e.data.searchTree;
+    car.path = e.data.path;
+};
+
 let t = 0;
 
 function step(){
@@ -153,10 +211,10 @@ function step(){
     car.step(width, height, room);
 
     if(t++ % 10 === 0 && car.auto){
-        searchTree = [];
-        skippedNodes = car.search(15, room, (prevState, nextState) => {
-            searchTree.push([prevState, nextState]);
-        });
+        webWorker.postMessage({
+            type: "search",
+            car,
+        })
     }
 
     render();

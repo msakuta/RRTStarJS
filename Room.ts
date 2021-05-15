@@ -38,25 +38,6 @@ export class Room {
         this.height = height;
     }
 
-    render(ctx: CanvasRenderingContext2D, highlight: number | null){
-        if(highlight !== null){
-            ctx.strokeStyle = "#f00";
-            ctx.lineWidth = 5;
-            ctx.beginPath();
-            const v0 = this.walls[highlight];
-            const v1 = this.walls[(highlight + 1) % this.walls.length];
-            ctx.moveTo(v0[0], v0[1])
-            ctx.lineTo(v1[0], v1[1]);
-            ctx.stroke();
-        }
-        ctx.strokeStyle = "#000";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        this.walls.forEach((pos) => ctx.lineTo(pos[0], pos[1]));
-        ctx.closePath();
-        ctx.stroke();
-    }
-
     checkHit(car: {x: number, y: number}): number[] | null {
         let hit = zipAdjacent(this.walls).reduce((acc: number[] | null, [pos, nextPos]: number[][], idx: number) => {
             function distanceToLine(line0: number[], line1: number[], pos: number[]): number {

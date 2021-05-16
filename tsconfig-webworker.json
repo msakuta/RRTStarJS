@@ -1,8 +1,6 @@
 {
     "compilerOptions": {
-      "lib": ["webworker",
-        "es6",
-        "scripthost"],
+      "lib": ["webworker", "es6"],
       "module": "None"
     },
     "module": "None"

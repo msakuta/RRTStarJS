@@ -196,8 +196,10 @@ canvas.addEventListener("mouseup", (ev: MouseEvent) => {
 let pendingSearch = false;
 
 webWorker.onmessage = (e) => {
-    searchTree = e.data.searchTree;
-    car.path = e.data.path;
+    if(car.auto){
+        searchTree = e.data.searchTree;
+        car.path = e.data.path;
+    }
     pendingSearch = false;
 };
 

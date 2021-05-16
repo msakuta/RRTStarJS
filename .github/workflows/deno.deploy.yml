@@ -21,6 +21,7 @@ jobs:
         deno-version: ${{ matrix.deno }} # tests across multiple Deno versions
 
     - run: deno bundle --config tsconfig.json index.ts index.js
+    - run: deno bundle --config tsconfig-webworker.json .\search.ts search.js
 
     # Don't ignore product
     - run: rm .gitignore

@@ -73,6 +73,16 @@ webWorker.postMessage({
     height,
 });
 
+const autopilotElem = document.getElementById("autopilot") as HTMLInputElement;
+
+function toggleAutopilot(){
+    autopilotElem.checked = car.auto = !car.auto;
+    if(!car.auto)
+        searchTree.length = 0;
+}
+
+autopilotElem?.addEventListener("click", toggleAutopilot);
+
 function render(){
     const ctx = canvas?.getContext("2d");
     const hit = room.checkHit(car);
@@ -131,9 +141,8 @@ function render(){
     if(carElem)
         carElem.innerHTML = `x: ${car.x.toFixed(2)}, y: ${car.y.toFixed(2)}, heading: ${car.angle.toFixed(2)
             } searchTree size: ${searchTree.length} skipped: ${skippedNodes}`;
-    const autopilotElem = document.getElementById("autopilot");
     if(autopilotElem)
-        autopilotElem.innerHTML = car.auto ? "on" : "off";
+        autopilotElem.checked = car.auto;
 }
 
 class ButtonState{
@@ -161,11 +170,7 @@ window.onkeyup = (ev: KeyboardEvent) => {
         case 'w': buttonState.w = false; break;
         case 's': buttonState.s = false; break;
         case 'a': case 'd': car.moveSteer(0); break;
-        case 'z':
-            car.auto = !car.auto;
-            if(!car.auto)
-                searchTree.length = 0;
-            break;
+        case 'z': toggleAutopilot(); break;
     }
 }
 

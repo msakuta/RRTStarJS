@@ -18,7 +18,7 @@ This project assumes [deno](https://deno.land/) but you could use Node.js to bui
 
 Compile with
 
-    deno bundle --config tsconfig.json .\search.ts search.js
+    deno bundle --config tsconfig.json .\index.ts index.js
     deno bundle --config tsconfig-webworker.json .\search.ts search.js
 
 because WebWorker script needs to be a separate file.

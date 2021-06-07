@@ -109,6 +109,7 @@ class Room {
     }
 }
 const MAX_SPEED = 2;
+const MAX_STEER = Math.PI;
 class State {
     x = 0;
     y = 0;
@@ -168,7 +169,7 @@ class Car {
             speed * deltaTime,
             0
         ];
-        heading = heading + steer * x * 0.01 * Math.PI;
+        heading = heading + Math.max(-1, Math.min(1, steer)) * x * 0.01 * MAX_STEER;
         const dx = Math.cos(heading) * x - Math.sin(heading) * y + px;
         const dy = Math.sin(heading) * x + Math.cos(heading) * y + py;
         return {
@@ -176,6 +177,11 @@ class Car {
             y: dy,
             heading
         };
+    }
+    nextRelativeAngle() {
+        if (!this.path || this.path.length === 0) return 0;
+        const nextNode = this.path[this.path.length - 1];
+        return Math.atan2(nextNode.y - this.y, nextNode.x - this.x);
     }
     step(width, height, room, deltaTime = 1) {
         if (this.auto) {
@@ -197,7 +203,8 @@ class Car {
                 ];
                 if (Math.abs(wrapAngle(this.goal.heading - this.angle)) < Math.PI / 4) this.desiredSpeed = Math.sign(nextNode.speed) * Math.min(1, Math.max(0, (Math.sqrt(dx * dx + dy * dy) - distRadius) / 50));
                 else this.desiredSpeed = Math.sign(nextNode.speed);
-                this.desiredSteer = nextNode.steer;
+                const relativeAngle = Math.atan2(nextNode.y - this.y, nextNode.x - this.x);
+                this.desiredSteer = Math.max(-1, Math.min(1, wrapAngle(relativeAngle - this.angle)));
             } else {
                 this.desiredSpeed = 0;
             }
@@ -358,7 +365,6 @@ let car = new CarRender();
 const { width: width2 , height: height2  } = canvas.getBoundingClientRect();
 let room = new RoomRender(width2, height2);
 let searchTree = [];
-let skippedNodes = 0;
 webWorker.postMessage({
     type: "initRoom",
     width: width2,
@@ -424,7 +430,7 @@ function render() {
         room.render(ctx, hit ? hit[0] : null);
     }
     const carElem = document.getElementById("car");
-    if (carElem) carElem.innerHTML = `x: ${car.x.toFixed(2)}, y: ${car.y.toFixed(2)}, heading: ${car.angle.toFixed(2)} searchTree size: ${searchTree.length} skipped: ${skippedNodes}`;
+    if (carElem) carElem.innerHTML = `x: ${car.x.toFixed(2)}, y: ${car.y.toFixed(2)}, heading: ${car.angle.toFixed(2)} steer: ${car.steer.toFixed(2)} relativeAngle: ${car.nextRelativeAngle().toFixed(2)} searchTree size: ${searchTree.length}`;
     if (autopilotElem) autopilotElem.checked = car.auto;
 }
 class ButtonState {

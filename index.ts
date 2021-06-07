@@ -140,7 +140,8 @@ function render(){
     const carElem = document.getElementById("car");
     if(carElem)
         carElem.innerHTML = `x: ${car.x.toFixed(2)}, y: ${car.y.toFixed(2)}, heading: ${car.angle.toFixed(2)
-            } searchTree size: ${searchTree.length} skipped: ${skippedNodes}`;
+            } steer: ${car.steer.toFixed(2)
+            } relativeAngle: ${car.nextRelativeAngle().toFixed(2)} searchTree size: ${searchTree.length}`;
     if(autopilotElem)
         autopilotElem.checked = car.auto;
 }

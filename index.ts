@@ -203,7 +203,7 @@ let pendingSearch = false;
 
 webWorker.onmessage = (e) => {
     if(car.auto){
-        searchTree = e.data.searchTree;
+        searchTree = e.data.searchNodes;
         car.path = e.data.path;
     }
     pendingSearch = false;

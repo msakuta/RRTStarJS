@@ -1,6 +1,6 @@
 
 import { Room } from './Room.ts';
-import { Car, distRadius, State, StateWithCost } from './Car.ts';
+import { Car, distRadius, State, StateWithCost, StateWithCostSerialized } from './Car.ts';
 
 const MAX_SPEED = 2.;
 
@@ -203,8 +203,28 @@ let pendingSearch = false;
 
 webWorker.onmessage = (e) => {
     if(car.auto){
-        searchTree = e.data.searchNodes;
-        car.path = e.data.path;
+        // const nodes = e.data.nodes.map((node: StateWithCostSerialized) => StateWithCost.deserialize(node));
+        const nodes: StateWithCost[] = [];
+        const nodesArray = new Float32Array(e.data.nodes);
+        for(let i = 0; i < nodesArray.length / 5; i++){
+            nodes.push(StateWithCost.deserialize({
+                x: nodesArray[i * 5],
+                y: nodesArray[i * 5 + 1],
+                heading: nodesArray[i * 5 + 2],
+                cost: nodesArray[i * 5 + 3],
+                speed: nodesArray[i * 5 + 4],
+            }));
+        }
+        car.path = e.data.path?.map((nodeId: number) => nodes[nodeId]);
+        const connections: [number, number][] = [];
+        const connectionsArray = new Int32Array(e.data.connections);
+        searchTree = [];
+        for(let i = 0; i < connectionsArray.length / 2; i++){
+            searchTree.push([
+                nodes[connectionsArray[i * 2]],
+                nodes[connectionsArray[i * 2 + 1]],
+            ]);
+        }
     }
     pendingSearch = false;
 };
@@ -227,7 +247,14 @@ function step(){
         webWorker.postMessage({
             type: "search",
             switchBack: switchBackCheck?.checked,
-            car,
+            car: {
+                x: car.x,
+                y: car.y,
+                angle: car.angle,
+                speed: car.speed,
+                auto: car.auto,
+                goal: car.goal,
+            },
         })
     }
 

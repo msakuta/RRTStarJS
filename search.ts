@@ -15,13 +15,26 @@ onmessage = function(e) {
     else if(e.data.type === "search"){
         console.log('initRoom Message received from main script: ' + e.data);
         car.copyFrom(e.data.car);
-        const searchNodes: [StateWithCost, StateWithCost][] = [];
-        car.search(20, room, (prevState, nextState) => {
-            searchNodes.push([prevState, nextState]);
+        const searchNodes: [number, number][] = [];
+        const ret = car.search(20, room, (prevState, nextState) => {
+            searchNodes.push([prevState.id, nextState.id]);
         }, e.data.switchBack);
-        self.postMessage({
-            searchNodes,
-            path: car.path,
+        const connectionsArray = new Int32Array(searchNodes.length * 2);
+        searchNodes.forEach(([from, to], i) => {
+            connectionsArray[i * 2] = from;
+            connectionsArray[i * 2 + 1] = to;
         });
+        const connectionBuffer = connectionsArray.buffer;
+        try{
+            const msg = {
+                ...ret,
+                connections: connectionBuffer,
+            };
+            console.log(`Before Transfer: ${msg.nodes.byteLength}, ${connectionBuffer.byteLength}`);
+            self.postMessage(msg, [msg.nodes, msg.connections]);
+            console.log(`After Transferred: ${msg.nodes.byteLength}, ${connectionBuffer.byteLength}`);
+        } catch(e) {
+            console.error("Stack overflow!!!!!");
+        }
     }
 }

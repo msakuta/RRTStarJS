@@ -9,7 +9,15 @@ export class State {
     heading = 0;
 }
 
+export interface StateWithCostSerialized {
+    x: number;
+    y: number;
+    heading: number;
+    cost: number;
+    speed: number;
+}
 export class StateWithCost extends State {
+    id = 0;
     cost = 0;
     steer = 0;
     speed = 1;
@@ -24,6 +32,22 @@ export class StateWithCost extends State {
         this.steer = steer;
         this.speed = speed;
         this.from = null;
+    }
+
+    /// Serialize this object in a form suitable for transferring among web workers
+    serialize(): StateWithCostSerialized {
+        return {
+            x: this.x,
+            y: this.y,
+            heading: this.heading,
+            speed: this.speed,
+            cost: this.cost,
+        }
+    }
+
+    static deserialize(data: StateWithCostSerialized) {
+        const ret = new StateWithCost(data, data.cost, 0, data.speed);
+        return ret;
     }
 }
 
@@ -148,6 +172,7 @@ export class Car{
             return false;
         };
         let nodes: StateWithCost[] = [];
+        const edges: [StateWithCost, StateWithCost][] = [];
         let skippedNodes = 0;
 
         const checkGoal = (node: StateWithCost) => {
@@ -204,8 +229,16 @@ export class Car{
         };
 
         if(this.searchState &&
-            compareDistance({x: this.x, y: this.y, heading: this.angle}, this.searchState.searchTree, distThreshold * 10.) &&
-            this.goal && !compareDistance(this.goal, this.searchState.goal)){
+            compareDistance({x: this.x, y: this.y, heading: this.angle}, this.searchState.searchTree, distThreshold * 100.) &&
+            this.goal && !compareDistance(this.goal, this.searchState.goal))
+        {
+            const enumTree = (root: StateWithCost) => {
+                for(let node of root.to){
+                    enumTree(node);
+                }
+                nodes.push(root);
+            };
+            enumTree(this.searchState.searchTree);
             const traceTree = (root: StateWithCost, depth: number = 1, expandDepth = 1) => {
                 if(depth < 1)
                     return;
@@ -216,19 +249,21 @@ export class Car{
                 if(switchBack || this.speed < 0.1)
                     search(root, expandDepth, -1, 1);
                 for(let node of root.to){
-                    traceTree(node, depth  - 1, expandDepth);
+                    traceTree(node, depth - 1, expandDepth);
                 }
-                nodes.push(root);
+                // nodes.push(root);
                 if(this.searchState)
                     this.searchState.treeSize++;
             };
             const treeSize = this.searchState.treeSize;
             this.searchState.treeSize = 0;
-            traceTree(this.searchState.searchTree, 30, treeSize < 5000 ? 1 : 0);
+            nodes.push(this.searchState.searchTree);
+            traceTree(this.searchState.searchTree, 20, treeSize < 5000 ? 1 : 0);
         }
         else if(this.goal){
             if(switchBack || -0.1 < this.speed){
                 const root = new StateWithCost({x: this.x, y: this.y, heading: this.angle}, 0, 0, 1);
+                nodes.push(root);
                 search(root, depth, 1);
                 this.searchState = {
                     searchTree: root,
@@ -238,6 +273,7 @@ export class Car{
             }
             if(switchBack || this.speed < 0.1){
                 const root = new StateWithCost({x: this.x, y: this.y, heading: this.angle}, 0, 0, -1);
+                nodes.push(root);
                 search(root, depth, -1);
                 this.searchState = {
                     searchTree: root,
@@ -246,10 +282,23 @@ export class Car{
                 };
             }
         }
-        nodes.forEach(node => {
+        nodes.forEach((node, index) => node.id = index);
+        nodes.forEach((node, index) => {
             if(node.from)
                 callback(node.from, node);
         })
-        return skippedNodes;
+        const nodeBuffer = new Float32Array(nodes.length * 5);
+        nodes.forEach((node, i) => {
+            nodeBuffer[i * 5] = node.x;
+            nodeBuffer[i * 5 + 1] = node.y;
+            nodeBuffer[i * 5 + 2] = node.heading;
+            nodeBuffer[i * 5 + 3] = node.cost;
+            nodeBuffer[i * 5 + 4] = node.speed;
+        });
+        return {
+            skippedNodes,
+            nodes: nodeBuffer.buffer,
+            path: this.path?.map(node => node.id),
+        };
     }
 }

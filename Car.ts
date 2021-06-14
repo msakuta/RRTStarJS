@@ -84,7 +84,7 @@ export class Car{
 
     copyFrom(other: any){
         for(var property in this) {
-            if(property !== "searchState")
+            if(property !== "searchState" && property !== "path")
                 this[property] = other[property];
         }
     }
@@ -171,7 +171,7 @@ export class Car{
             }
             return false;
         };
-        let nodes: StateWithCost[] = [];
+        const nodes: StateWithCost[] = [];
         const edges: [StateWithCost, StateWithCost][] = [];
         let skippedNodes = 0;
 
@@ -197,7 +197,8 @@ export class Car{
                 const nextDirection = changeDirection ? -direction : direction;
                 let distance = 10 + Math.random() * 50;
                 let next = this.stepMove(x, y, heading, steer, 1, nextDirection * distance);
-                let hit = interpolate(start, steer, nextDirection * distance, (state) => 0 <= state.x && state.x < room.width &&
+                let hit = interpolate(start, steer, nextDirection * distance, (state) =>
+                    0 <= state.x && state.x < room.width &&
                     0 <= state.y && state.y < room.height &&
                     room.checkHit({x: state.x, y: state.y}) !== null);
                 if(!hit){
@@ -208,7 +209,13 @@ export class Car{
                         if(compareState(existingNode, node)){
                             if(existingNode.cost > node.cost){
                                 existingNode.cost = node.cost;
+                                const toIndex = existingNode.from?.to.indexOf(existingNode);
+                                if(toIndex !== undefined && 0 <= toIndex)
+                                    existingNode.from?.to.splice(toIndex, 1);
                                 existingNode.from = start;
+                                existingNode.x = node.x;
+                                existingNode.y = node.y;
+                                existingNode.heading = node.heading;
                             }
                             foundNode = existingNode;
                             break;
@@ -242,14 +249,17 @@ export class Car{
             const traceTree = (root: StateWithCost, depth: number = 1, expandDepth = 1) => {
                 if(depth < 1)
                     return;
-                if(checkGoal(root))
+                if(!root || checkGoal(root))
                     return;
                 if(switchBack || -0.1 < this.speed)
                     search(root, expandDepth, 1, 1);
                 if(switchBack || this.speed < 0.1)
                     search(root, expandDepth, -1, 1);
-                for(let node of root.to){
-                    traceTree(node, depth - 1, expandDepth);
+                if(0 < root.to.length){
+                    for(let i = 0; i < 2; i++){
+                        const idx = Math.floor(Math.random() * root.to.length);
+                        traceTree(root.to[idx], depth - 1, expandDepth);
+                    }
                 }
                 // nodes.push(root);
                 if(this.searchState)
@@ -259,29 +269,38 @@ export class Car{
             this.searchState.treeSize = 0;
             nodes.push(this.searchState.searchTree);
             traceTree(this.searchState.searchTree, 20, treeSize < 5000 ? 1 : 0);
+            this.searchState.goal = this.goal;
         }
         else if(this.goal){
+            let root = null;
             if(switchBack || -0.1 < this.speed){
-                const root = new StateWithCost({x: this.x, y: this.y, heading: this.angle}, 0, 0, 1);
+                root = new StateWithCost({x: this.x, y: this.y, heading: this.angle}, 0, 0, 1);
                 nodes.push(root);
                 search(root, depth, 1);
-                this.searchState = {
-                    searchTree: root,
-                    treeSize: 0,
-                    goal: this.goal,
-                };
             }
             if(switchBack || this.speed < 0.1){
-                const root = new StateWithCost({x: this.x, y: this.y, heading: this.angle}, 0, 0, -1);
+                root = new StateWithCost({x: this.x, y: this.y, heading: this.angle}, 0, 0, -1);
                 nodes.push(root);
                 search(root, depth, -1);
-                this.searchState = {
-                    searchTree: root,
-                    treeSize: 0,
-                    goal: this.goal,
-                };
+            }
+            if(root){
+                if(this.searchState){
+                    this.searchState.searchTree = root;
+                    this.searchState.goal = this.goal;
+                }
+                else{
+                    this.searchState = {
+                        searchTree: root,
+                        treeSize: 0,
+                        goal: this.goal,
+                    };
+                }
             }
         }
+        this.path?.forEach(node => {
+            if(nodes.indexOf(node) < 0)
+                nodes.push(node);
+        });
         nodes.forEach((node, index) => node.id = index);
         nodes.forEach((node, index) => {
             if(node.from)

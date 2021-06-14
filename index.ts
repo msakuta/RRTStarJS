@@ -220,6 +220,10 @@ webWorker.onmessage = (e) => {
         const connectionsArray = new Int32Array(e.data.connections);
         searchTree = [];
         for(let i = 0; i < connectionsArray.length / 2; i++){
+            if(nodes.length <= connectionsArray[i * 2])
+                throw "no way";
+                if(nodes.length <= connectionsArray[i * 2 + 1])
+                throw "no way2";
             searchTree.push([
                 nodes[connectionsArray[i * 2]],
                 nodes[connectionsArray[i * 2 + 1]],

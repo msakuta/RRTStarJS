@@ -283,7 +283,9 @@ export class Car{
                 for(let root of this.searchState.searchTree)
                     enumTree(root);
             }
+
             console.log(`Using existing tree with ${nodes.length} nodes`);
+
             const traceTree = (root: StateWithCost, depth: number = 1, expandDepth = 1) => {
                 if(depth < 1)
                     return;
@@ -299,15 +301,22 @@ export class Car{
                         traceTree(root.to[idx], depth - 1, expandDepth);
                     }
                 }
-                // nodes.push(root);
                 if(this.searchState)
                     this.searchState.treeSize++;
             };
+
+            if(0 < nodes.length && nodes.length < 10000){
+                // Descending the tree is not a good way to sample a random node in a tree, since
+                // the chances are much higher on shallow nodes. We want to give chances uniformly
+                // among all nodes in the tree, so we randomly pick one from a linear list of all nodes.
+                for(let i = 0; i < 100; i++){
+                    const idx = Math.floor(Math.random() * nodes.length);
+                    traceTree(nodes[idx]);
+                }
+            }
+
             const treeSize = this.searchState.treeSize;
             this.searchState.treeSize = 0;
-            // nodes.push(this.searchState.searchTree);
-            for(let root of this.searchState.searchTree)
-                traceTree(root, 10, treeSize < 5000 ? 1 : 0);
             this.searchState.goal = this.goal;
         }
         else if(this.goal){

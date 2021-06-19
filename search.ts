@@ -3,7 +3,8 @@ import { Room } from './Room.ts';
 
 console.log("search called");
 
-let room = new Room(200, 200);
+const room = new Room(200, 200);
+const car = new Car();
 
 onmessage = function(e) {
     if(e.data.type === "initRoom"){
@@ -11,17 +12,31 @@ onmessage = function(e) {
         room.width = e.data.width;
         room.height = e.data.height;
     }
+    else if(e.data.type === "move"){
+        car.moveFromMsg(e.data.car);
+        car.followPath();
+    }
     else if(e.data.type === "search"){
-        console.log('initRoom Message received from main script: ' + e.data);
-        let car = new Car();
         car.copyFrom(e.data.car);
-        const searchTree: [StateWithCost, StateWithCost][] = [];
-        car.search(20, room, (prevState, nextState) => {
-            searchTree.push([prevState, nextState]);
+        const searchNodes: [number, number][] = [];
+        const ret = car.search(5, room, (prevState, nextState) => {
+            searchNodes.push([prevState.id, nextState.id]);
         }, e.data.switchBack);
-        self.postMessage({
-            searchTree,
-            path: car.path,
+        const connectionsArray = new Int32Array(searchNodes.length * 2);
+        searchNodes.forEach(([from, to], i) => {
+            connectionsArray[i * 2] = from;
+            connectionsArray[i * 2 + 1] = to;
         });
+        const connectionBuffer = connectionsArray.buffer;
+        try{
+            const msg = {
+                ...ret,
+                connections: connectionBuffer,
+            };
+            console.log(`Before Transfer: ${msg.nodes.byteLength}, ${connectionBuffer.byteLength}`);
+            self.postMessage(msg, [msg.nodes, msg.connections]);
+        } catch(e) {
+            console.error("Stack overflow!!!!!");
+        }
     }
 }

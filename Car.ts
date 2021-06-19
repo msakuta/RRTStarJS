@@ -77,12 +77,17 @@ export class Car{
     goal: State | null = null;
     path: StateWithCost[] | null = null;
     searchState?: {
-        searchTree: StateWithCost,
+        searchTree: StateWithCost[],
         treeSize: number,
+        start: State,
         goal: State,
     };
 
     copyFrom(other: any){
+        if(this.goal && (this.goal.x !== other.goal.x || this.goal.y !== other.goal.y || this.goal.heading !== other.goal.heading)){
+            this.path = null;
+        }
+
         for(var property in this) {
             if(property !== "searchState" && property !== "path")
                 this[property] = other[property];
@@ -185,8 +190,8 @@ export class Car{
             return false;
         };
 
-        const search = (start: StateWithCost, depth: number, direction: number, expandStates = 2) => {
-            if(depth < 1)
+        const search = (start: StateWithCost, depth: number, direction: number, expandStates = 1) => {
+            if(depth < 1 || 10000 < nodes.length)
                 return;
             if(checkGoal(start))
                 return;
@@ -197,22 +202,36 @@ export class Car{
                 const nextDirection = changeDirection ? -direction : direction;
                 let distance = 10 + Math.random() * 50;
                 let next = this.stepMove(x, y, heading, steer, 1, nextDirection * distance);
-                let hit = interpolate(start, steer, nextDirection * distance, (state) =>
+                const hit = interpolate(start, steer, nextDirection * distance, (state) =>
                     0 <= state.x && state.x < room.width &&
                     0 <= state.y && state.y < room.height &&
                     room.checkHit({x: state.x, y: state.y}) !== null);
-                if(!hit){
-                    // Changing direction costs
-                    let node = new StateWithCost(next, start.cost + distance + (changeDirection ? 1000 : 0), steer, nextDirection);
-                    let foundNode = null;
-                    for(let existingNode of nodes){
-                        if(compareState(existingNode, node)){
-                            if(existingNode.cost > node.cost){
+                if(hit)
+                    continue;
+                // Changing direction costs
+                let node = new StateWithCost(next, start.cost + distance + (changeDirection ? 1000 : 0), steer, nextDirection);
+                let foundNode = null;
+                let skip = false;
+                for(let existingNode of nodes){
+                    if(compareState(existingNode, node)){
+                        if(existingNode !== start && existingNode.from !== start && start.to.indexOf(existingNode) < 0){
+                            if(existingNode.cost > node.cost &&
+                                interpolate(start, steer, nextDirection * distance, (state) =>
+                                    0 <= state.x && state.x < room.width &&
+                                    0 <= state.y && state.y < room.height &&
+                                    room.checkHit({x: state.x, y: state.y}) !== null))
+                            {
                                 existingNode.cost = node.cost;
                                 const toIndex = existingNode.from?.to.indexOf(existingNode);
+                                console.log(`toIndex: ${toIndex}`)
                                 if(toIndex !== undefined && 0 <= toIndex)
                                     existingNode.from?.to.splice(toIndex, 1);
+                                else{
+                                    return;
+                                    throw "Shouldn't happen";
+                                }
                                 existingNode.from = start;
+                                start.to.push(existingNode);
                                 existingNode.x = node.x;
                                 existingNode.y = node.y;
                                 existingNode.heading = node.heading;
@@ -220,40 +239,47 @@ export class Car{
                             foundNode = existingNode;
                             break;
                         }
+                        else
+                        {
+                            skip = true;
+                        }
                     }
-                    if(!foundNode){
-                        node.from = start;
-                        start.to.push(node);
-                        nodes.push(node);
-                        // callback(start, node);
-                        search(node, depth - 1, nextDirection, expandStates);
-                    }
-                    else{
-                        skippedNodes++;
-                    }
+                }
+                if(skip)
+                    continue;
+                if(!foundNode){
+                    node.from = start;
+                    start.to.push(node);
+                    nodes.push(node);
+                    // callback(start, node);
+                    search(node, depth - 1, nextDirection, expandStates);
+                }
+                else{
+                    skippedNodes++;
                 }
             }
         };
 
         if(this.searchState &&
-            compareDistance({x: this.x, y: this.y, heading: this.angle}, this.searchState.searchTree, distThreshold * 100.) &&
-            this.goal && !compareDistance(this.goal, this.searchState.goal))
+            compareDistance({x: this.x, y: this.y, heading: this.angle}, this.searchState.start, distThreshold * 100.) &&
+            this.goal && compareDistance(this.goal, this.searchState.goal))
         {
             const enumTree = (root: StateWithCost) => {
+                nodes.push(root);
                 for(let node of root.to){
                     enumTree(node);
                 }
-                nodes.push(root);
             };
-            enumTree(this.searchState.searchTree);
+            for(let root of this.searchState.searchTree)
+                enumTree(root);
             const traceTree = (root: StateWithCost, depth: number = 1, expandDepth = 1) => {
                 if(depth < 1)
                     return;
                 if(!root || checkGoal(root))
                     return;
-                if(switchBack || -0.1 < this.speed)
+                if(switchBack || -0.1 < root.speed)
                     search(root, expandDepth, 1, 1);
-                if(switchBack || this.speed < 0.1)
+                if(switchBack || root.speed < 0.1)
                     search(root, expandDepth, -1, 1);
                 if(0 < root.to.length){
                     for(let i = 0; i < 2; i++){
@@ -267,31 +293,36 @@ export class Car{
             };
             const treeSize = this.searchState.treeSize;
             this.searchState.treeSize = 0;
-            nodes.push(this.searchState.searchTree);
-            traceTree(this.searchState.searchTree, 20, treeSize < 5000 ? 1 : 0);
+            // nodes.push(this.searchState.searchTree);
+            for(let root of this.searchState.searchTree)
+                traceTree(root, 10, treeSize < 5000 ? 1 : 0);
             this.searchState.goal = this.goal;
         }
         else if(this.goal){
-            let root = null;
+            let roots = [];
             if(switchBack || -0.1 < this.speed){
-                root = new StateWithCost({x: this.x, y: this.y, heading: this.angle}, 0, 0, 1);
+                const root = new StateWithCost({x: this.x, y: this.y, heading: this.angle}, 0, 0, 1);
                 nodes.push(root);
                 search(root, depth, 1);
+                roots.push(root);
             }
             if(switchBack || this.speed < 0.1){
-                root = new StateWithCost({x: this.x, y: this.y, heading: this.angle}, 0, 0, -1);
+                const root = new StateWithCost({x: this.x, y: this.y, heading: this.angle}, 0, 0, -1);
                 nodes.push(root);
                 search(root, depth, -1);
+                roots.push(root);
             }
-            if(root){
+            if(roots){
                 if(this.searchState){
-                    this.searchState.searchTree = root;
+                    this.searchState.searchTree = roots;
+                    this.searchState.start = {x: this.x, y: this.y, heading: this.angle};
                     this.searchState.goal = this.goal;
                 }
                 else{
                     this.searchState = {
-                        searchTree: root,
+                        searchTree: roots,
                         treeSize: 0,
+                        start: {x: this.x, y: this.y, heading: this.angle},
                         goal: this.goal,
                     };
                 }
@@ -302,9 +333,14 @@ export class Car{
                 nodes.push(node);
         });
         nodes.forEach((node, index) => node.id = index);
+        const connections: [number, number][] = [];
         nodes.forEach((node, index) => {
-            if(node.from)
+            if(node.from){
                 callback(node.from, node);
+                if(!(node.from.id < nodes.length)) throw `No node id for from: ${node.from.id}`;
+                if(!(node.id < nodes.length)) throw `No node id for to: ${node.id}`;
+                connections.push([node.from.id, node.id]);
+            }
         })
         const nodeBuffer = new Float32Array(nodes.length * 5);
         nodes.forEach((node, i) => {
@@ -314,6 +350,12 @@ export class Car{
             nodeBuffer[i * 5 + 3] = node.cost;
             nodeBuffer[i * 5 + 4] = node.speed;
         });
+
+        // validate
+        for(let con of connections){
+            if(!(con[0] < nodes.length)) throw `No node id for from: ${con}`;
+            if(!(con[1] < nodes.length)) throw `No node id for to: ${con}`;
+        }
         return {
             skippedNodes,
             nodes: nodeBuffer.buffer,

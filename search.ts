@@ -16,7 +16,7 @@ onmessage = function(e) {
         console.log('initRoom Message received from main script: ' + e.data);
         car.copyFrom(e.data.car);
         const searchNodes: [number, number][] = [];
-        const ret = car.search(20, room, (prevState, nextState) => {
+        const ret = car.search(5, room, (prevState, nextState) => {
             searchNodes.push([prevState.id, nextState.id]);
         }, e.data.switchBack);
         const connectionsArray = new Int32Array(searchNodes.length * 2);

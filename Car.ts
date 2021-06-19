@@ -239,7 +239,6 @@ export class Car{
                             {
                                 existingNode.cost = node.cost;
                                 const toIndex = existingNode.from?.to.indexOf(existingNode);
-                                console.log(`toIndex: ${toIndex}`)
                                 if(toIndex !== undefined && 0 <= toIndex)
                                     existingNode.from?.to.splice(toIndex, 1);
                                 else{

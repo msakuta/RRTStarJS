@@ -141,7 +141,7 @@ function render(){
     if(carElem)
         carElem.innerHTML = `x: ${car.x.toFixed(2)}, y: ${car.y.toFixed(2)}, heading: ${car.angle.toFixed(2)
             } steer: ${car.steer.toFixed(2)
-            } relativeAngle: ${car.nextRelativeAngle().toFixed(2)} searchTree size: ${searchTree.length}`;
+            } relativeAngle: ${(car.nextRelativeAngle() / Math.PI).toFixed(2)} searchTree size: ${searchTree.length}`;
     if(autopilotElem)
         autopilotElem.checked = car.auto;
 }
@@ -261,6 +261,10 @@ function step(){
             },
         })
     }
+    webWorker.postMessage({
+        type: "move",
+        car: {x: car.x, y: car.y, angle: car.angle},
+    });
 
     render();
 

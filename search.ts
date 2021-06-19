@@ -12,8 +12,11 @@ onmessage = function(e) {
         room.width = e.data.width;
         room.height = e.data.height;
     }
+    else if(e.data.type === "move"){
+        car.moveFromMsg(e.data.car);
+        car.followPath();
+    }
     else if(e.data.type === "search"){
-        console.log('initRoom Message received from main script: ' + e.data);
         car.copyFrom(e.data.car);
         const searchNodes: [number, number][] = [];
         const ret = car.search(5, room, (prevState, nextState) => {
@@ -32,7 +35,6 @@ onmessage = function(e) {
             };
             console.log(`Before Transfer: ${msg.nodes.byteLength}, ${connectionBuffer.byteLength}`);
             self.postMessage(msg, [msg.nodes, msg.connections]);
-            console.log(`After Transferred: ${msg.nodes.byteLength}, ${connectionBuffer.byteLength}`);
         } catch(e) {
             console.error("Stack overflow!!!!!");
         }

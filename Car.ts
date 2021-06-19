@@ -53,6 +53,7 @@ export class StateWithCost extends State {
 
 export const distRadius = 10;
 export const distThreshold = distRadius * distRadius;
+/// Wrap angle within [-pi, pi]
 export const wrapAngle = (x: number) => x - Math.floor((x + Math.PI) / (2 * Math.PI)) * (2 * Math.PI);
 export const compareState = (s1: State, s2: State) => {
     let deltaAngle = wrapAngle(s1.heading - s2.heading);
@@ -121,7 +122,7 @@ export class Car{
         if(!this.path || this.path.length === 0)
             return 0;
         const nextNode = this.path[this.path.length-1];
-        return Math.atan2(nextNode.y - this.y, nextNode.x - this.x);
+        return wrapAngle(Math.atan2(nextNode.y - this.y, nextNode.x - this.x) - this.angle);
     }
 
     followPath(){
@@ -135,8 +136,16 @@ export class Car{
                 this.desiredSpeed = Math.sign(nextNode.speed) * Math.min(1, Math.max(0, (Math.sqrt(dx * dx + dy * dy) - distRadius) / 50));
             else
                 this.desiredSpeed = Math.sign(nextNode.speed);
-            const relativeAngle = Math.atan2(nextNode.y - this.y, nextNode.x - this.x);
-            this.desiredSteer = Math.max(-1, Math.min(1, wrapAngle(relativeAngle - this.angle)));
+            const relativeAngle = wrapAngle(Math.atan2(nextNode.y - this.y, nextNode.x - this.x) - this.angle);
+
+            const nextNextNode = 2 < this.path.length ? this.path[this.path.length - 2] : {...this.goal, steer: this.steer, speed: this.speed};
+
+            // If the goal is behind 
+            if((this.x - nextNextNode.x) * (this.x - nextNextNode.x) + (this.y - nextNextNode.y) * (this.y - nextNextNode.y) <
+                (nextNode.x - nextNextNode.x) * (nextNode.x - nextNextNode.x) + (nextNode.y - nextNextNode.y) * (nextNode.y - nextNextNode.y)
+                && ((nextNode.speed < 0) !== (relativeAngle < -Math.PI / 2. || Math.PI / 2. < relativeAngle)))
+                this.path.pop();
+            this.desiredSteer = Math.max(-1, Math.min(1, relativeAngle));
         }
         else{
             this.desiredSpeed = 0.;

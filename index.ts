@@ -83,6 +83,28 @@ function toggleAutopilot(){
 
 autopilotElem?.addEventListener("click", toggleAutopilot);
 
+function sliderInit(sliderId: string, labelId: string, writer: (value: number) => void){
+    const slider = document.getElementById(sliderId) as HTMLInputElement;
+    const label = document.getElementById(labelId);
+    if(!slider || !label)
+        return;
+    label.innerHTML = slider.value;
+
+    const paramsContainer = document.getElementById("paramsContainer");
+
+    const updateFromInput = (_event: Event) => {
+        let value = label.innerHTML = slider.value;
+        if(value !== undefined)
+            writer(parseInt(value));
+    }
+    slider.addEventListener("input", updateFromInput);
+    return {elem: slider};
+}
+
+sliderInit("searchNodesInput", "searchNodesLabel", (value: number) => {
+    car.searchNodes = value;
+});
+
 function render(){
     const ctx = canvas?.getContext("2d");
     const hit = room.checkHit(car);
@@ -258,6 +280,7 @@ function step(){
                 speed: car.speed,
                 auto: car.auto,
                 goal: car.goal,
+                searchNodes: car.searchNodes,
             },
         })
     }

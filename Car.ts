@@ -77,6 +77,7 @@ export class Car{
     auto: boolean = true;
     goal: State | null = null;
     path: StateWithCost[] | null = null;
+    searchNodes = 100;
     searchState?: {
         searchTree: StateWithCost[],
         treeSize: number,
@@ -317,7 +318,7 @@ export class Car{
                 // Descending the tree is not a good way to sample a random node in a tree, since
                 // the chances are much higher on shallow nodes. We want to give chances uniformly
                 // among all nodes in the tree, so we randomly pick one from a linear list of all nodes.
-                for(let i = 0; i < 100; i++){
+                for(let i = 0; i < this.searchNodes; i++){
                     const idx = Math.floor(Math.random() * nodes.length);
                     traceTree(nodes[idx]);
                 }

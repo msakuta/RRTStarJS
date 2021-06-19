@@ -1,6 +1,6 @@
 
 import { Room } from './Room.ts';
-import { Car, distRadius, State, StateWithCost } from './Car.ts';
+import { Car, distRadius, State, StateWithCost, StateWithCostSerialized } from './Car.ts';
 
 const MAX_SPEED = 2.;
 
@@ -83,6 +83,28 @@ function toggleAutopilot(){
 
 autopilotElem?.addEventListener("click", toggleAutopilot);
 
+function sliderInit(sliderId: string, labelId: string, writer: (value: number) => void){
+    const slider = document.getElementById(sliderId) as HTMLInputElement;
+    const label = document.getElementById(labelId);
+    if(!slider || !label)
+        return;
+    label.innerHTML = slider.value;
+
+    const paramsContainer = document.getElementById("paramsContainer");
+
+    const updateFromInput = (_event: Event) => {
+        let value = label.innerHTML = slider.value;
+        if(value !== undefined)
+            writer(parseInt(value));
+    }
+    slider.addEventListener("input", updateFromInput);
+    return {elem: slider};
+}
+
+sliderInit("searchNodesInput", "searchNodesLabel", (value: number) => {
+    car.searchNodes = value;
+});
+
 function render(){
     const ctx = canvas?.getContext("2d");
     const hit = room.checkHit(car);
@@ -141,7 +163,7 @@ function render(){
     if(carElem)
         carElem.innerHTML = `x: ${car.x.toFixed(2)}, y: ${car.y.toFixed(2)}, heading: ${car.angle.toFixed(2)
             } steer: ${car.steer.toFixed(2)
-            } relativeAngle: ${car.nextRelativeAngle().toFixed(2)} searchTree size: ${searchTree.length}`;
+            } relativeAngle: ${(car.nextRelativeAngle() / Math.PI).toFixed(2)} searchTree size: ${searchTree.length}`;
     if(autopilotElem)
         autopilotElem.checked = car.auto;
 }
@@ -203,8 +225,32 @@ let pendingSearch = false;
 
 webWorker.onmessage = (e) => {
     if(car.auto){
-        searchTree = e.data.searchTree;
-        car.path = e.data.path;
+        // const nodes = e.data.nodes.map((node: StateWithCostSerialized) => StateWithCost.deserialize(node));
+        const nodes: StateWithCost[] = [];
+        const nodesArray = new Float32Array(e.data.nodes);
+        for(let i = 0; i < nodesArray.length / 5; i++){
+            nodes.push(StateWithCost.deserialize({
+                x: nodesArray[i * 5],
+                y: nodesArray[i * 5 + 1],
+                heading: nodesArray[i * 5 + 2],
+                cost: nodesArray[i * 5 + 3],
+                speed: nodesArray[i * 5 + 4],
+            }));
+        }
+        car.path = e.data.path?.map((nodeId: number) => nodes[nodeId]);
+        const connections: [number, number][] = [];
+        const connectionsArray = new Int32Array(e.data.connections);
+        searchTree = [];
+        for(let i = 0; i < connectionsArray.length / 2; i++){
+            if(nodes.length <= connectionsArray[i * 2])
+                throw "no way";
+                if(nodes.length <= connectionsArray[i * 2 + 1])
+                throw "no way2";
+            searchTree.push([
+                nodes[connectionsArray[i * 2]],
+                nodes[connectionsArray[i * 2 + 1]],
+            ]);
+        }
     }
     pendingSearch = false;
 };
@@ -227,9 +273,21 @@ function step(){
         webWorker.postMessage({
             type: "search",
             switchBack: switchBackCheck?.checked,
-            car,
+            car: {
+                x: car.x,
+                y: car.y,
+                angle: car.angle,
+                speed: car.speed,
+                auto: car.auto,
+                goal: car.goal,
+                searchNodes: car.searchNodes,
+            },
         })
     }
+    webWorker.postMessage({
+        type: "move",
+        car: {x: car.x, y: car.y, angle: car.angle},
+    });
 
     render();
 
